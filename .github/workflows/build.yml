@@ -1,0 +1,158 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  NEST_LIBS_VERSION: v0.15
+  PACKAGE: death2
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows, os: windows-latest }
+          - { name: linux, os: ubuntu-latest }
+          - { name: macos, os: macos-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        if: matrix.name == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
+      - name: Install system libraries
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libgl-dev libasound2-dev
+
+      - name: Fetch nest-libs
+        shell: bash
+        run: |
+          cd ..
+          base="https://github.com/15-466/nest-libs/releases/download/$NEST_LIBS_VERSION"
+          if [ "${{ matrix.name }}" = windows ]; then
+            curl -fL -o nest-libs.zip "$base/nest-libs-windows-$NEST_LIBS_VERSION.zip"
+            7z x -y nest-libs.zip > /dev/null
+          else
+            curl -fL -o nest-libs.tar.gz "$base/nest-libs-${{ matrix.name }}-$NEST_LIBS_VERSION.tar.gz"
+            tar xzf nest-libs.tar.gz
+          fi
+          ls nest-libs
+
+      # cmd, not bash: Git Bash puts its own coreutils link.exe ahead of the MSVC
+      # one on PATH, and that link does not understand MSVC flags
+      - name: Build (Windows)
+        if: matrix.name == 'windows'
+        shell: cmd
+        run: node Maekfile.js -q dist/game.exe
+
+      - name: Build
+        if: matrix.name != 'windows'
+        shell: bash
+        env:
+          MACOS_UNIVERSAL: 1
+        run: |
+          node Maekfile.js -q dist/game
+          file dist/game
+
+      - name: Package
+        shell: bash
+        run: |
+          # the game target does not pull these in, and without the dll the exe will not start
+          cp ../nest-libs/*/*/dist/README-*.txt dist/
+          if [ "${{ matrix.name }}" = windows ]; then
+            cp ../nest-libs/windows/SDL3/dist/SDL3.dll dist/
+            rm -f dist/game.pdb
+          fi
+          cp README.md dist/
+          name="$PACKAGE-${{ matrix.name }}-$GITHUB_REF_NAME"
+          mv dist "$name"
+          if [ "${{ matrix.name }}" = windows ]; then
+            7z a -r "$name.zip" "$name" > /dev/null
+          else
+            tar czf "$name.tar.gz" "$name"
+          fi
+          ls -l "$name".*
+
+      # The runner has no GPU, so the game cannot get an OpenGL 3.3 context and will
+      # bail out of main() on purpose. That is still enough to catch the interesting
+      # failures: a missing dll means the process dies before main() runs at all, and
+      # a wrong asset path means it dies right after. So: start the packaged exe from
+      # a different working directory, and insist that main() got far enough to print.
+      - name: Smoke test (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $name = "$env:PACKAGE-windows-$env:GITHUB_REF_NAME"
+          $exe = Join-Path $PWD "$name\game.exe"
+
+          Write-Host "--- imports ---"
+          $deps = (dumpbin /dependents $exe | Select-String -Pattern '^\s+(\S+\.dll)$').Matches | ForEach-Object { $_.Groups[1].Value }
+          $missing = @()
+          foreach ($d in $deps) {
+            # api-ms-win-* and ext-ms-win-* are api sets: no such file exists, the loader
+            # maps the name to whatever really implements it
+            if ($d -match '^(api|ext)-ms-win-') { $where = "api set, resolved by the loader" }
+            elseif (Test-Path (Join-Path $PWD "$name\$d")) { $where = "shipped in the package" }
+            elseif (Test-Path (Join-Path $env:SystemRoot "System32\$d")) { $where = "on the system" }
+            else { $where = "NOT FOUND"; $missing += $d }
+            Write-Host ("{0,-28} {1}" -f $d, $where)
+          }
+          if ($missing.Count -gt 0) { throw "these dlls are neither shipped nor on the system: $($missing -join ', ')" }
+
+          Write-Host "--- launch ---"
+          $p = Start-Process -FilePath $exe -WorkingDirectory $PWD -PassThru `
+                 -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
+          $alive = -not $p.WaitForExit(20000)
+          if ($alive) { $p.Kill(); $p.WaitForExit() }
+          $out = (Get-Content smoke-out.txt -Raw -ErrorAction SilentlyContinue)
+          Write-Host "stdout:"; Write-Host $out
+          Write-Host "stderr:"; Write-Host (Get-Content smoke-err.txt -Raw -ErrorAction SilentlyContinue)
+
+          if (-not ($out -match 'Code page is properly set')) {
+            throw "game.exe never reached main(): exit code 0x$('{0:X8}' -f $p.ExitCode). A dll is probably missing."
+          }
+          if ($alive) {
+            Write-Host "RESULT: still running after 20s, it is in the main loop"
+          } elseif ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) {
+            Write-Host "RESULT: main() ran and exited cleanly with $($p.ExitCode), expected without a GPU"
+          } else {
+            throw "game.exe crashed: exit code 0x$('{0:X8}' -f $p.ExitCode)"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            *.zip
+            *.tar.gz
+
+  release:
+    name: publish
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed "s/RELEASE_TAG/$GITHUB_REF_NAME/g" .github/release-notes.md > notes.md
+          gh release create "$GITHUB_REF_NAME" packages/*/* \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md
