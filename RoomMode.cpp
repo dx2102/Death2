@@ -146,7 +146,7 @@ RoomMode::RoomMode() {
 		}
 	}
 
-	hint_line = "WASD MOVE   E INTERACT   TRY THE DESK FIRST\n";
+	hint_line = "WASD MOVE   E INTERACT   Talk to the patient first.\n";
 
 
 	// text --------------------------------------------------------------------------------------------

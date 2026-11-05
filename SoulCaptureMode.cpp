@@ -398,7 +398,7 @@ void SoulCaptureMode::draw(glm::uvec2 const &drawable_size) {
 		}
 		hud_text("Cut ACROSS the yellow lifeline.", bottom + 3.6f * FONT_SIZE, grey);
 		hud_text("WASD moves, mouse aims, Space cuts.", bottom + 2.3f * FONT_SIZE, grey);
-		if (!captured) hud_text("Esc steps back into the ward.", bottom + 1.0f * FONT_SIZE, grey);
+		if (!captured) hud_text("Try exploring the room if it's too hard! Esc steps back into the ward.", bottom + 1.0f * FONT_SIZE, grey);
 	}
 
 	GL_ERRORS();
