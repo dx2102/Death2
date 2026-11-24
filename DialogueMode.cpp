@@ -325,6 +325,32 @@ void DialogueMode::draw(glm::uvec2 const &drawable_size) {
 	dialogue_processor.curr_line.is_typing = true;
 	dialogue_processor.draw_curr_line(textbox_x_start, textbox_y_start, textbox_x_end, textbox_y_end, drawable_size);
 
+	//speaker name on a dark tag just above the box ("Someone" is the narrator, so no tag)
+	auto speaker = ink->get_var<const char *>("speaker");
+	std::string name = speaker.has_value() ? std::string(*speaker) : "";
+	if (!name.empty() && name != "Someone" && !dialogue_processor.curr_line.characters.empty()) {
+		uint32_t pixels = uint32_t(9.0f * scale);
+		bool new_font = !name_font || name_font->pixel_size != pixels;
+		if (new_font) name_font = std::make_unique< Font >(data_path("LowresPixel-Regular.otf"), pixels);
+		if (new_font || name_text != name) {
+			name_image = render_text(*name_font, name);
+			name_text = name;
+		}
+		glm::mat4 to_clip = glm::mat4(
+			2.0f / drawable_size.x, 0.0f, 0.0f, 0.0f,
+			0.0f, 2.0f / drawable_size.y, 0.0f, 0.0f,
+			0.0f, 0.0f, 1.0f, 0.0f,
+			-1.0f, -1.0f, 0.0f, 1.0f
+		);
+		glm::vec2 tag_min = glm::vec2(textbox_x_start, textbox_y_end);
+		glm::vec2 tag_max = tag_min + glm::vec2(float(name_image.advance) + 12.0f * scale, 14.0f * scale);
+		{
+			DrawLines lines(to_clip);
+			lines.fill_rect(tag_min, tag_max, glm::u8vec4(20, 20, 30, 255));
+		}
+		draw_text(name_image, tag_min + glm::vec2(6.0f * scale, 4.0f * scale), glm::vec4(1.0f, 0.85f, 0.5f, 1.0f), drawable_size);
+	}
+
 	// // dialogue --------------------------------------------------------------------------------------------
 	// float textbox_x_start = MARGIN;
 	// float textbox_y_start = MARGIN;
