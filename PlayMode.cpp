@@ -883,6 +883,10 @@ void PlayMode::update(float elapsed) {
 	float best_dist = 1e9f;
 	glm::vec2 player_center = player_at + glm::vec2(ReaperSize * 0.5f);
 	for (size_t i = 0; i < interactables.size(); i++) {
+		//nothing left to do with a patient whose soul is collected, so no marker either
+		if (soul_taken && interactables[i].name == "patient") {
+			continue;
+		}
 		float dist = glm::length(interactables[i].pos - player_center);
 		if (dist < interactables[i].radius && dist < best_dist) {
 			best_dist = dist;
