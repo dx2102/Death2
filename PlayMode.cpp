@@ -659,20 +659,20 @@ void PlayMode::on_interact(Interactable const &thing) {
 		// the dialogue starts the battle itself when it reads "# battle"; we just hear about the capture
 		std::weak_ptr<Mode> weak_room = shared_from_this();
 		dialogue->on_capture = [weak_room]() {
-			auto room = std::static_pointer_cast< PlayMode >(weak_room.lock());
-			if (room) room->soul_taken = true;
+			auto owner = std::static_pointer_cast< PlayMode >(weak_room.lock());
+			if (owner) owner->soul_taken = true;
 		};
 
 		//the dialogue starts the battle; in the tutorial we set up its minigame
-		PlayMode *room = this;
-		dialogue->setup_minigame = [room](SoulCaptureMode &minigame) {
-			room->minigame_seen = true;
-			if (room->tutorial_step == TUT_FIRST_TRY) {
+		PlayMode *self = this;
+		dialogue->setup_minigame = [self](SoulCaptureMode &minigame) {
+			self->minigame_seen = true;
+			if (self->tutorial_step == TUT_FIRST_TRY) {
 				minigame.difficulty = SoulCaptureMode::level(1);
 				minigame.tutorial = true;
 				minigame.resist_after_first_hit = true;
 			}
-			if (room->tutorial_step == TUT_SECOND_TRY) {
+			if (self->tutorial_step == TUT_SECOND_TRY) {
 				minigame.difficulty = SoulCaptureMode::level(1);
 				minigame.tutorial = true;
 			}
@@ -1007,9 +1007,9 @@ void PlayMode::draw_hint_text(glm::uvec2 const &drawable_size) {
 		}
 		TextImage const &image = found->second;
 
-		float left = std::floor(view_x + line.center_x * scale - image.advance * 0.5f);
+		float text_x = std::floor(view_x + line.center_x * scale - image.advance * 0.5f);
 		float base = std::floor(view_y + line.baseline_y * scale);
-		draw_text(image, glm::vec2(left, base), glm::vec4(1.0f, 1.0f, 1.0f, line.alpha), drawable_size);
+		draw_text(image, glm::vec2(text_x, base), glm::vec4(1.0f, 1.0f, 1.0f, line.alpha), drawable_size);
 	}
 
 	hint_lines.clear();
