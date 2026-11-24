@@ -508,6 +508,9 @@ void PlayMode::finish_pages() {
 //oneline hints
 std::string PlayMode::tutorial_hint() {
 
+	if (note_time > 0.0f) {
+		return note;
+	}
 	if (tutorial_step == TUT_MOVE) {
 		return "Use W A S D to move.";
 	}
@@ -683,11 +686,17 @@ void PlayMode::on_interact(Interactable const &thing) {
 		reset_buttons();
 		Mode::set_current(dialogue);
 	} else if (thing.name == "diary") {
+		//in the tutorial the diary only opens at the step that asks for it
+		if (in_tutorial() && tutorial_step != TUT_FIND_DIARY) {
+			show_note(diary_read ? "You already read the diary." : "Talk to the patient first.");
+			return;
+		}
 		diary_read = true;
-		std::cout << "You read the diary. The patient seems calmer now." << std::endl;
 		if (tutorial_step == TUT_FIND_DIARY) {
 			tutorial_step = TUT_READ_DIARY;
 			tutorial_page = 0;
+		} else {
+			show_note("You read the diary. The patient seems calmer now.");
 		}
 	} else if (thing.name == "father") {
 		std::cout << "You talked to the father. (TODO: tell story)" << std::endl;
@@ -728,6 +737,10 @@ void PlayMode::update(float elapsed) {
 
 	if (active_dialogue && Mode::current.get() == this) {
 		active_dialogue.reset();
+		//the tutorial has its own closing pages; the other rooms just point at the door
+		if (soul_taken && !in_tutorial()) {
+			show_note("Soul collected. Leave through the door at the bottom.", 5.0f);
+		}
 		if (tutorial_step == TUT_FIRST_TRY) {
 			if (minigame_seen) {
 				tutorial_step = TUT_DIARY;
@@ -770,6 +783,7 @@ void PlayMode::update(float elapsed) {
 		hover_time = hover_time - 1000.0f;
 	}
 
+	note_time = std::max(0.0f, note_time - elapsed);
 	std::string hint = tutorial_hint();
 	if (hint != "" && spotlight_alpha <= 0.0f) {
 		shown_hint = hint;

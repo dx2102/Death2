@@ -10,6 +10,7 @@
 
 //For sound init:
 #include "Sound.hpp"
+#include "GameAudio.hpp"
 
 //GL.hpp will include a non-namespace-polluting set of opengl prototypes:
 #include "GL.hpp"
@@ -117,6 +118,9 @@ int main(int argc, char **argv) {
 
 	//------------ load assets --------------
 	call_load_functions();
+
+	//------------ start the background music --------------
+	GameAudio::ward_music();
 
 	//------------ create game mode + make current --------------
 	std::shared_ptr< HallwayMode > hallway = std::make_shared< HallwayMode >();

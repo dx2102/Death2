@@ -115,6 +115,9 @@ struct DialogueMode : Mode {
 	void process_tags();
 	//pick choice i, then show the line that follows it
 	void choose(int i);
+	//show the next line, what Space does
+	void advance();
+	bool started = false; //the first line has been shown
 	//close dialogue
 	void leave();
 

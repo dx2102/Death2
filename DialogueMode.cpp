@@ -142,74 +142,79 @@ void DialogueMode::choose(int i) {
 	dialogue_processor.handle_curr_line(curr_line);
 }
 
-bool DialogueMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
+//show the next line (what Space does), or start the battle / close the dialogue
+void DialogueMode::advance() {
 	auto &thread = ink->runner;
 
+	if (can_battle) {
+		can_battle = false;
+		start_battle();
+		return;
+	}
+
+	if (pause_pending) {
+		pause_pending = false;
+		ink->paused = true;
+		leave(); //close the dialogue
+		return;
+	}
+
+	curr_line = ""; // restart line
+	dialogue_processor.reset_line(last_drawable_size);
+
+	// can the runner continue?
+	// yes - get the next line
+	// no - at choice or end
+	if ( thread->can_continue() ){
+		curr_line = thread->getline();
+		process_tags();
+
+		//handles if the battle tag isnt attached to text
+		if (can_battle && trim(curr_line).empty()) {
+			can_battle = false;
+			start_battle();
+			return;
+		}
+
+		// nothing to show: either a pause tag with no text, or the story
+		// close right away when hit ->DONE or ->END
+		bool stopped = !thread->can_continue() && !thread->has_choices();
+		if (trim(curr_line).empty() && (pause_pending || stopped)) {
+			pause_pending = false;
+			ink->paused = true;
+			leave();
+			return;
+		}
+
+		//if there is an empty line before choice  show the choices instead of a blank box
+		if (!(trim(curr_line).empty() && thread->has_choices())) {
+			dialogue_processor.handle_curr_line(curr_line);
+			return;
+		}
+	}
+
+	if (thread->has_choices()) {
+		// one choice per line, numbered to match the 1/2/3 keys
+		curr_line = "";
+		int number = 1;
+		for ( const ink::runtime::choice c : *thread ) {
+			curr_line.append(std::to_string(number) + ". " + c.text() + "\n");
+			number++;
+		}
+		dialogue_processor.handle_curr_line(curr_line);
+	}
+	else {
+		leave();
+	}
+}
+
+bool DialogueMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
+	(void)window_size;
 	if (evt.type == SDL_EVENT_KEY_DOWN) {
 		if (evt.key.key == SDLK_SPACE){ // process dialogue
 			talk.pressed = true;
-			if (can_battle) {
-				can_battle = false;
-				start_battle();
-				return true;
-			}
-
-			if (pause_pending) {
-				pause_pending = false;
-				ink->paused = true;
-				leave(); //close the dialogue
-				return true;
-			}
-
-			curr_line = ""; // restart line
-			dialogue_processor.reset_line(last_drawable_size);
-            
-			// can the runner continue?
-			// yes - get the next line
-			// no - at choice or end
-			if ( thread->can_continue() ){
-				curr_line = thread->getline();
-				process_tags();
-
-				//handles if the battle tag isnt attached to text
-				if (can_battle && trim(curr_line).empty()) {
-					can_battle = false;
-					start_battle();
-					return true;
-				}
-
-				// nothing to show: either a pause tag with no text, or the story
-				// close right away when hit ->DONE or ->END
-				bool stopped = !thread->can_continue() && !thread->has_choices();
-				if (trim(curr_line).empty() && (pause_pending || stopped)) {
-					pause_pending = false;
-					ink->paused = true;
-					leave();
-					return true;
-				}
-
-				//if there is an empty line before choice  show the choices instead of a blank box
-				if (!(trim(curr_line).empty() && thread->has_choices())) {
-					dialogue_processor.handle_curr_line(curr_line);
-					return true;
-				}
-			}
-
-			if (thread->has_choices()) {
-				// one choice per line, numbered to match the 1/2/3 keys
-				curr_line = "";
-				int number = 1;
-				for ( const ink::runtime::choice c : *thread ) {
-					curr_line.append(std::to_string(number) + ". " + c.text() + "\n");
-					number++;
-				}
-				dialogue_processor.handle_curr_line(curr_line);
-				return true;
-			}
-			else {
-				leave();
-				return true;
-			}
+			advance();
+			return true;
 		}
 	} else if (evt.type == SDL_EVENT_KEY_UP) {
 		if (evt.key.key == SDLK_SPACE) {
@@ -254,6 +259,14 @@ void DialogueMode::update(float elapsed) {
 			leave();
 		}
 		return;
+	}
+
+	//show the first line right away instead of an empty box. This waits until the box has
+	//been drawn once, because the text texture is made at the size of the drawable:
+	if (!started && last_drawable_size.x > 1) {
+		started = true;
+		advance();
+		if (Mode::current.get() != this) return; //the dialogue closed or a battle started
 	}
 
 	// keep ghost floating

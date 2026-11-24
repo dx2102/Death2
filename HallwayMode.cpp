@@ -3,6 +3,7 @@
 
 #include "data_path.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -12,6 +13,9 @@ const float FloorTileSize = 32.0f;
 
 const int MapWidth = 32;
 const int MapHeight = 30;
+
+const float HintFontSize = 8.0f;
+const float HintLineHeight = 11.0f;
 
 static void draw_floor_shadow(Sprites &sprites, float center_x, float floor_y, float width) {
 	glm::vec4 shadow_color = glm::vec4(0.0f, 0.0f, 0.0f, 0.4f);
@@ -438,6 +442,25 @@ void HallwayMode::draw(glm::uvec2 const &drawable_size) {
 		sprites.draw(interact_tex, marker_pos, marker_size);
 	}
 
+	//hint box, the same look as the one in the rooms. It sits at the top because the
+	//player starts at the bottom of the corridor:
+	std::string hint_lines[2];
+	int hint_count = 1;
+	if (all_souls_taken()) {
+		hint_lines[0] = "All souls collected. Your shift is over.";
+		hint_lines[1] = "Thank you for playing!";
+		hint_count = 2;
+	} else if (nearby != -1) {
+		hint_lines[0] = "Press E to enter room " + std::to_string(doors[nearby].number) + ".";
+	} else {
+		hint_lines[0] = "Walk up to a door and press E.";
+	}
+	float box_height = 10.0f + hint_count * HintLineHeight;
+	glm::vec2 box_pos = glm::vec2(12.0f, 230.0f - box_height);
+	glm::vec2 box_size = glm::vec2(232.0f, box_height);
+	sprites.draw(sprites.white, box_pos - glm::vec2(1.0f), box_size + glm::vec2(2.0f), glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+	sprites.draw(sprites.white, box_pos, box_size, glm::vec4(0.0f, 0.0f, 0.0f, 0.85f));
+
 	float fade = fade_in;
 	if (fade_out > fade) {
 		fade = fade_out;
@@ -448,6 +471,46 @@ void HallwayMode::draw(glm::uvec2 const &drawable_size) {
 	}
 
 	sprites.end(drawable_size);
+
+	//text goes on top at screen resolution, and not while fading (it would sit on top of the fade):
+	if (fade <= 0.0f) {
+		draw_hint_text(hint_lines, hint_count, box_pos.y + box_height - 4.0f - HintFontSize, drawable_size);
+	}
+}
+
+bool HallwayMode::all_souls_taken() {
+	for (int i = 0; i < 5; i++) {
+		if (!rooms[i] || !rooms[i]->soul_taken) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void HallwayMode::draw_hint_text(std::string const lines[2], int count, float first_baseline, glm::uvec2 const &drawable_size) {
+	float scale = std::floor(std::min(drawable_size.x / 256.0f, drawable_size.y / 240.0f));
+	if (scale < 1.0f) {
+		scale = 1.0f;
+	}
+	float view_x = std::floor((drawable_size.x - 256.0f * scale) * 0.5f);
+	float view_y = std::floor((drawable_size.y - 240.0f * scale) * 0.5f);
+
+	uint32_t pixels = uint32_t(HintFontSize * scale);
+	bool new_font = !hint_font || hint_font->pixel_size != pixels;
+	if (new_font) {
+		hint_font = std::make_unique< Font >(data_path("LowresPixel-Regular.otf"), pixels);
+	}
+
+	glViewport(0, 0, drawable_size.x, drawable_size.y);
+	for (int i = 0; i < count; i++) {
+		if (new_font || hint_texts[i] != lines[i]) {
+			hint_images[i] = render_text(*hint_font, lines[i]);
+			hint_texts[i] = lines[i];
+		}
+		float text_x = std::floor(view_x + 128.0f * scale - hint_images[i].advance * 0.5f);
+		float baseline = std::floor(view_y + (first_baseline - i * HintLineHeight) * scale);
+		draw_text(hint_images[i], glm::vec2(text_x, baseline), glm::vec4(1.0f), drawable_size);
+	}
 }
 
 void HallwayMode::start_leaving(std::shared_ptr< Mode > next) {

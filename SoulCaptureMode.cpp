@@ -3,6 +3,7 @@
 #include "DrawLines.hpp"
 #include "gl_errors.hpp"
 #include "data_path.hpp"
+#include "GameAudio.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -79,6 +80,8 @@ SoulCaptureMode::SoulCaptureMode(Difficulty const &difficulty_) : difficulty(dif
 	lifeline_angle = lifeline_base_angle;
 
 	if (difficulty.mechanic == Mechanic::Planks) place_planks();
+
+	GameAudio::battle_music();
 }
 
 SoulCaptureMode::~SoulCaptureMode() {
@@ -177,6 +180,10 @@ void SoulCaptureMode::slice() {
 	slice_time = 0.0f;
 	knocked = false;
 
+	GameAudio::scythe();
+	if (check.hit) GameAudio::hit();
+	else GameAudio::miss();
+
 	{
 		constexpr uint32_t Count = 24;
 		std::uniform_real_distribution< float > jitter(-0.12f, 0.12f);
@@ -237,6 +244,7 @@ bool SoulCaptureMode::handle_event(SDL_Event const &evt, glm::uvec2 const &windo
 	bool go_on = evt.type == SDL_EVENT_MOUSE_BUTTON_DOWN || (evt.type == SDL_EVENT_KEY_DOWN && (evt.key.key == SDLK_SPACE || evt.key.key == SDLK_E));
 	if (captured && return_to && go_on && slice_time > 1.0f) {
 		auto self = shared_from_this();
+		GameAudio::ward_music();
 		if (did_retreat) did_retreat(true);
 		Mode::set_current(std::move(return_to));
 		return true;
@@ -260,6 +268,7 @@ bool SoulCaptureMode::handle_event(SDL_Event const &evt, glm::uvec2 const &windo
 		} else if (evt.key.key == SDLK_ESCAPE && return_to && !captured) {
 			//step back into the ward: the player may want to look around before trying again
 			auto self = shared_from_this();
+			GameAudio::ward_music();
 			if (did_retreat) did_retreat(false);
 			Mode::set_current(std::move(return_to));
 			return true;
@@ -607,14 +616,21 @@ void SoulCaptureMode::draw(glm::uvec2 const &drawable_size) {
 		};
 
 		char buf[128];
-		snprintf(buf, sizeof(buf), "%s  misses %u  %.1fs", difficulty.name, misses, timer);
-		set_text(status_line, buf);
-		draw_line(status_line, glm::vec2(margin, PixelCanvas::Height - 1.2f * line_height), White);
+		//the difficulty, timer and playtest keys only matter when the minigame runs on its own
+		//(the 1-5 keys do nothing inside the game), so in the game only the hit count shows:
+		bool playtest = !return_to;
+		if (playtest) {
+			snprintf(buf, sizeof(buf), "%s  misses %u  %.1fs", difficulty.name, misses, timer);
+			set_text(status_line, buf);
+			draw_line(status_line, glm::vec2(margin, PixelCanvas::Height - 1.2f * line_height), White);
+		}
 		snprintf(buf, sizeof(buf), "hits %u/%u", hits, HitsNeeded);
 		set_text(hits_line, buf);
-		draw_line(hits_line, glm::vec2(margin, PixelCanvas::Height - 2.4f * line_height), Green);
-		set_text(keys_line, "playtest: keys 1-5 switch the difficulty");
-		draw_line(keys_line, glm::vec2(margin, PixelCanvas::Height - 3.6f * line_height), glm::u8vec4(0x99, 0x99, 0xaa, 0xff));
+		draw_line(hits_line, glm::vec2(margin, PixelCanvas::Height - (playtest ? 2.4f : 1.2f) * line_height), Green);
+		if (playtest) {
+			set_text(keys_line, "playtest: keys 1-5 switch the difficulty");
+			draw_line(keys_line, glm::vec2(margin, PixelCanvas::Height - 3.6f * line_height), glm::u8vec4(0x99, 0x99, 0xaa, 0xff));
+		}
 
 		if (captured || message_time > 0.0f) {
 			//show the result just above where the cut started, kept inside the canvas

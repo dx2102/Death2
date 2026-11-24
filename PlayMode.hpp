@@ -159,6 +159,11 @@ struct PlayMode : Mode {
 	bool spotlight_on_diary = false;
 	glm::vec2 diary_pos = glm::vec2(0.0f);
 
+	//a short message in the hint box, e.g. after reading the diary:
+	std::string note;
+	float note_time = 0.0f;
+	void show_note(std::string const &text, float seconds = 2.5f) { note = text; note_time = seconds; }
+
 	bool tutorial_page_lines(int page, std::string lines[2]);
 	void finish_pages();
 	std::string tutorial_hint();

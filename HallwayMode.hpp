@@ -2,6 +2,7 @@
 
 #include "Mode.hpp"
 #include "Sprites.hpp"
+#include "PixelCanvas.hpp"
 
 #include <glm/glm.hpp>
 
@@ -53,4 +54,11 @@ struct HallwayMode : Mode {
 	float fade_out = 0.0f;
 	std::shared_ptr< Mode > leaving_to;
 	void start_leaving(std::shared_ptr< Mode > next);
+
+	//hint box along the bottom: how to enter a room, or the ending once every soul is collected
+	bool all_souls_taken();
+	std::unique_ptr< Font > hint_font;
+	std::string hint_texts[2];
+	TextImage hint_images[2];
+	void draw_hint_text(std::string const lines[2], int count, float first_baseline, glm::uvec2 const &drawable_size);
 };
