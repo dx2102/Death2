@@ -103,6 +103,7 @@ struct PlayMode : Mode {
 	glm::vec2 soul_pos = glm::vec2(128.0f, 200.0f);
 	Sprites::Texture patient_dead_tex;
 	Sprites::Texture cardiogram_dead_tex;
+	Sprites::Texture twin_tex;
 
 	struct Prop {
 		Sprites::Texture tex;
