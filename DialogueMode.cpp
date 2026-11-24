@@ -66,6 +66,25 @@ void DialogueMode::process_tags() {
 			pause_pending = true;
 		}
 	}
+
+	// In final_script the patient knots put "# battle" on its own line after the last
+	// line of text, and ink drops a tag that has no line to attach to. Until the script
+	// is fixed, treat the last line before each battle as if it had the tag.
+	static const char *battle_lines[] = {
+		"\"I... I must finish.\"", // abigail
+		"\"You... must be Satan. God cannot look like this\"", // sherry
+		"\"Bro actually, I kinda dont gaf, can we just get this over with?\"", // keith
+		"\"this aint an airport.\"", // david
+		"\"...Goodbye Luca.\"", // twins
+		"\"I hope he won't be mad at me for this.\"",
+		"\"Im sorry that I couldn't do anything.\"",
+		"\"LUCA PLEASE DON'T LEAVE ME...!\"",
+		"A human cannot interfere with my job.",
+	};
+	std::string line = trim(curr_line);
+	for (const char *b : battle_lines) {
+		if (line == b) can_battle = true;
+	}
 }
 
 void DialogueMode::leave() {
