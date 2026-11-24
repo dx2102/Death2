@@ -653,6 +653,15 @@ void PlayMode::on_interact(Interactable const &thing) {
 			story->set_var< bool >(("diary_" + patient).c_str(), true);
 		}
 
+		//a battle left unfinished in another room (Esc, then walking out) belongs to that
+		//patient: drop it so this patient's dialogue starts from the top. That soul can
+		//still be collected later, its dialogue just starts over.
+		if (story->battle_pending && story->battle_patient != patient) {
+			story->battle_pending = false;
+			story->runner->move_to(story->next_patient.c_str());
+		}
+		story->battle_patient = patient;
+
 		if (tutorial_step == TUT_FIRST_TRY && !minigame_seen) {
 			story->runner->move_to("henry");
 		}

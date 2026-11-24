@@ -49,6 +49,8 @@ struct InkStory {
 	// a "# battle" tag was read but the soul hasn't been captured yet (e.g. the player
 	// retreated with Escape). the next dialogue that opens goes straight into the battle.
 	bool battle_pending = false;
+	//whose dialogue the story is in, so a battle left pending in one room is not started in another
+	std::string battle_patient;
 	//the knot that handles the next patient
 	std::string next_patient = "next_patient";
 
@@ -118,6 +120,7 @@ struct DialogueMode : Mode {
 	//show the next line, what Space does
 	void advance();
 	bool started = false; //the first line has been shown
+	bool showing_choices = false; //the choice list is on screen: Space picks the first one
 	//close dialogue
 	void leave();
 

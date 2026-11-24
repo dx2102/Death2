@@ -126,6 +126,7 @@ void DialogueMode::choose(int i) {
 	auto &thread = ink->runner;
 	if (!thread->has_choices() || i >= int(thread->num_choices())) return;
 
+	showing_choices = false;
 	thread->choose(i);
 	curr_line = thread->can_continue() ? thread->getline() : "";
 	process_tags();
@@ -145,6 +146,12 @@ void DialogueMode::choose(int i) {
 //show the next line (what Space does), or start the battle / close the dialogue
 void DialogueMode::advance() {
 	auto &thread = ink->runner;
+
+	//Space on the choice list picks choice 1, so a player who only presses Space never gets stuck:
+	if (showing_choices && thread->has_choices()) {
+		choose(0);
+		return;
+	}
 
 	if (can_battle) {
 		can_battle = false;
@@ -202,6 +209,7 @@ void DialogueMode::advance() {
 			number++;
 		}
 		dialogue_processor.handle_curr_line(curr_line);
+		showing_choices = true;
 	}
 	else {
 		leave();
