@@ -364,6 +364,7 @@ PlayMode::PlayMode(int room_number_) : room_number(room_number_) {
 
 	if (room_number == 5) {
 		twin_tex = sprites.load(data_path("patient5b.png"));
+		twin_dead_tex = sprites.load(data_path("patient5b_dead.png"));
 	}
 
 	//build props
@@ -433,6 +434,9 @@ Sprites::Texture PlayMode::texture_for(Prop const &prop) {
 	if (soul_taken) {
 		if (prop.kind == 'B') {
 			return patient_dead_tex;
+		}
+		if (prop.kind == 'b') {
+			return twin_dead_tex;
 		}
 		if (prop.kind == 'C') {
 			return cardiogram_dead_tex;
@@ -610,7 +614,7 @@ bool PlayMode::tile_is_solid(int tx, int ty) {
 		return true;
 	}
 	char c = room[ty][tx];
-	if (c == '#' || c == 'B' || c == 'T' || c == '=' || c == '|' || c == 'C' || c == 'I' || c == 'M' || c == 'W') {
+	if (c == '#' || c == 'B' || c == 'b' || c == 'T' || c == '=' || c == '|' || c == 'C' || c == 'I' || c == 'M' || c == 'W') {
 		return true;
 	}
 	return false;

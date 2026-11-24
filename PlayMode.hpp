@@ -104,6 +104,7 @@ struct PlayMode : Mode {
 	Sprites::Texture patient_dead_tex;
 	Sprites::Texture cardiogram_dead_tex;
 	Sprites::Texture twin_tex;
+	Sprites::Texture twin_dead_tex;
 
 	struct Prop {
 		Sprites::Texture tex;
