@@ -125,7 +125,7 @@ bool HallwayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_si
 			down.downs += 1;
 			down.pressed = true;
 			return true;
-		} else if (evt.key.key == SDLK_E) {
+		} else if (evt.key.key == SDLK_E || evt.key.key == SDLK_SPACE) {
 			interact.downs += 1;
 			interact.pressed = true;
 			return true;
@@ -143,7 +143,7 @@ bool HallwayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_si
 		} else if (evt.key.key == SDLK_S) {
 			down.pressed = false;
 			return true;
-		} else if (evt.key.key == SDLK_E) {
+		} else if (evt.key.key == SDLK_E || evt.key.key == SDLK_SPACE) {
 			interact.pressed = false;
 			return true;
 		}

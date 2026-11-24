@@ -911,7 +911,7 @@ void PlayMode::update(float elapsed) {
 		}
 	}
 
-	if (interact.downs > 0 && nearby != -1) {
+	if ((interact.downs > 0 || advance.downs > 0) && nearby != -1) { //E or Space
 		on_interact(interactables[nearby]);
 	}
 
